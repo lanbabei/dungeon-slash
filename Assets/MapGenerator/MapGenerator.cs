@@ -6,6 +6,14 @@ using System.Linq;
 
 public class MapGenerator : MonoBehaviour {
 
+    public class MapInfo
+    {
+        public int width;
+        public int height;
+        public int tileWidth;
+        public int tileHeight;
+    }
+
     public class LayerInfo
     {
         public string name;
@@ -19,13 +27,29 @@ public class MapGenerator : MonoBehaviour {
         public int gid;
     }
 
-    public TextAsset xmlFile;
+    public class ObjectInfo
+    {
+        public string name;
+        public string type;
+    }
+
+    public Object xmlFile;
     public Texture2D texture2D;
 
 	// Use this for initialization
 	void Start () {
+        string xmlText = System.IO.File.ReadAllText(AssetDatabase.GetAssetPath(xmlFile));
+
         XmlDocument xml = new XmlDocument();
-        xml.LoadXml(xmlFile.text);
+        xml.LoadXml(xmlText);
+
+        // Map Info
+        XmlElement mapXml = xml.GetElementsByTagName("map").Item(0) as XmlElement;
+        MapInfo mapInfo = new MapInfo();
+        mapInfo.width = int.Parse(mapXml.GetAttribute("width"));
+        mapInfo.height = int.Parse(mapXml.GetAttribute("height"));
+        mapInfo.tileWidth = int.Parse(mapXml.GetAttribute("tilewidth"));
+        mapInfo.tileHeight = int.Parse(mapXml.GetAttribute("tileheight"));
 
         // Create LayerInfo from XML.
         List<LayerInfo> layers = new List<LayerInfo>();
@@ -79,18 +103,50 @@ public class MapGenerator : MonoBehaviour {
                     spriteRenderer.sprite = sprites[gridInfo.gid];
                     spriteRenderer.sortingOrder = order;
 
+                    /* Changed because we have to make sure that the settings are correct.
+                     * It won't adjust to the sprites ppu anymore.
                     Vector3 position = new Vector3(j * spriteRenderer.sprite.textureRect.width / spriteRenderer.sprite.pixelsPerUnit,
                                                    i * spriteRenderer.sprite.textureRect.height / spriteRenderer.sprite.pixelsPerUnit, 0);
+                    */
+                    Vector3 position = new Vector3(j * layerInfo.width / mapInfo.tileWidth,
+                                                   i * layerInfo.height / mapInfo.tileHeight);
                     sprite.transform.position = position;
                 }
             }
 
             order++;
         }
-	}
-	
-	// Update is called once per frame
-	void Update () {
-	
+
+        // We will now create colliders
+        GameObject collidables = new GameObject("Collidables");
+        collidables.transform.parent = map.transform;
+        XmlElement collidableObjects = xml.GetElementsByTagName("objectgroup").Item(0) as XmlElement;
+        foreach (XmlElement collidableObject in collidableObjects.GetElementsByTagName("object"))
+        {
+            GameObject collidable = new GameObject(collidableObject.GetAttribute("name"));
+            collidable.transform.parent = collidables.transform;
+            
+            BoxCollider2D boxCollider = collidable.AddComponent<BoxCollider2D>();
+            boxCollider.size = new Vector2(int.Parse(collidableObject.GetAttribute("width"))/mapInfo.tileWidth, 
+                                           int.Parse(collidableObject.GetAttribute("height"))/mapInfo.tileHeight);
+            boxCollider.center = new Vector2(0.5f, 0.5f);
+
+            Vector3 position = new Vector3(int.Parse(collidableObject.GetAttribute("x")) / mapInfo.tileWidth,
+                                           int.Parse(collidableObject.GetAttribute("y")) / mapInfo.tileHeight,
+                                           0);
+            collidable.transform.position = position;
+
+            XmlElement properties = collidableObject.GetElementsByTagName("properties").Item(0) as XmlElement;
+            foreach (XmlElement property in properties)
+            {
+                Debug.Log("p " + property);
+                // Supported properties.
+                if (property.GetAttribute("name").Equals("isTriggered"))
+                {
+                    Debug.Log("E");
+                    boxCollider.isTrigger = bool.Parse(property.GetAttribute("value"));
+                }
+            }
+        }
 	}
 }
