@@ -139,11 +139,9 @@ public class MapGenerator : MonoBehaviour {
             XmlElement properties = collidableObject.GetElementsByTagName("properties").Item(0) as XmlElement;
             foreach (XmlElement property in properties)
             {
-                Debug.Log("p " + property);
                 // Supported properties.
                 if (property.GetAttribute("name").Equals("isTriggered"))
                 {
-                    Debug.Log("E");
                     boxCollider.isTrigger = bool.Parse(property.GetAttribute("value"));
                 }
             }
